@@ -231,30 +231,30 @@ class Rollout(Player):
                     playersCopy[k].hand.pick_up_card(remainingCards.full_deck[itr])
                     itr += 1
 
-            for n in range(3):
-                table_cards_copy = deepcopy(table_cards)
-                garbage_copy = deepcopy(garbage)
-                winners_copy = deepcopy(winners)
-                players_copy = deepcopy(playersCopy)
-                players_copy[(starter+i)%num_live_players] = deepcopy(lcPolicy)
-                lcAverageScore += runRoundsAndCalculatePoints(table_cards_copy, garbage_copy, players_copy, i, starter, isFirstRound, winners_copy, num_live_players, n, num_of_cards, cards_picked_up_from_table)
+
+            table_cards_copy = deepcopy(table_cards)
+            garbage_copy = deepcopy(garbage)
+            winners_copy = deepcopy(winners)
+            players_copy = deepcopy(playersCopy)
+            players_copy[(starter+i)%num_live_players] = deepcopy(lcPolicy)
+            lcAverageScore += runRoundsAndCalculatePoints(table_cards_copy, garbage_copy, players_copy, i, starter, isFirstRound, winners_copy, num_live_players, 0, num_of_cards, cards_picked_up_from_table)
 
 
-            for n in range(3):
-                table_cards_copy = deepcopy(table_cards)
-                garbage_copy = deepcopy(garbage)
-                winners_copy = deepcopy(winners)
-                players_copy = deepcopy(playersCopy)
-                players_copy[(starter+i)%num_live_players] = deepcopy(mcPolicy)
-                mcAverageScore += runRoundsAndCalculatePoints(table_cards_copy, garbage_copy, players_copy, i, starter, isFirstRound, winners_copy, num_live_players, n, num_of_cards, cards_picked_up_from_table)
 
-            for n in range(3):
-                table_cards_copy = deepcopy(table_cards)
-                garbage_copy = deepcopy(garbage)
-                winners_copy = deepcopy(winners)
-                players_copy = deepcopy(playersCopy)
-                players_copy[(starter+i)%num_live_players] = deepcopy(hcPolicy)
-                hcAverageScore += runRoundsAndCalculatePoints(table_cards_copy, garbage_copy, players_copy, i, starter, isFirstRound, winners_copy, num_live_players, n, num_of_cards, cards_picked_up_from_table)
+            table_cards_copy = deepcopy(table_cards)
+            garbage_copy = deepcopy(garbage)
+            winners_copy = deepcopy(winners)
+            players_copy = deepcopy(playersCopy)
+            players_copy[(starter+i)%num_live_players] = deepcopy(mcPolicy)
+            mcAverageScore += runRoundsAndCalculatePoints(table_cards_copy, garbage_copy, players_copy, i, starter, isFirstRound, winners_copy, num_live_players, 0, num_of_cards, cards_picked_up_from_table)
+
+
+            table_cards_copy = deepcopy(table_cards)
+            garbage_copy = deepcopy(garbage)
+            winners_copy = deepcopy(winners)
+            players_copy = deepcopy(playersCopy)
+            players_copy[(starter+i)%num_live_players] = deepcopy(hcPolicy)
+            hcAverageScore += runRoundsAndCalculatePoints(table_cards_copy, garbage_copy, players_copy, i, starter, isFirstRound, winners_copy, num_live_players, 0, num_of_cards, cards_picked_up_from_table)
 
 
         if lcAverageScore < mcAverageScore and lcAverageScore < hcAverageScore:

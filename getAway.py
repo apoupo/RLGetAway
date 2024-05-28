@@ -4,9 +4,8 @@ import math
 from copy import copy, deepcopy
 
 from cards import Hand, Deck
-from players import BasePolicy1, BasePolicy2, HumanPlayer, RandomAgent, Rollout, HumanLikeCPU
-from qlearn import QLearner
-from advanced_players import BasePolicy
+from players import LowCardPolicy, MidCardPolicy, HighCardPolicy, HumanPlayer, RandomAgent, Rollout
+
 
 class GetAwayGame:
     ACE_OF_SPADES = ('Spades', 'A', 12)
@@ -19,7 +18,6 @@ class GetAwayGame:
         self.loser_count = loser_count
 
     def run_game(self, show_every_round, show_cpu_cards):
-        ''' all complicated game logic occurs here '''
         self.deal_cards()
         players = copy(self.all_players)
 
@@ -32,11 +30,17 @@ class GetAwayGame:
         table_cards = Hand([])
         starter = -1
         num_live_players = len(players)
+        num_of_cards = {}
+        cards_picked_up_from_table = {}
+        for player in players:
+            num_of_cards[player.name] = 12
+            cards_picked_up_from_table[player.name] = Hand([])
 
         winners = []
         # Initializing game: first round decides who starts
         i=0
         while i<num_live_players:
+
             # First move of game - player plays ace of spades
             if i<1:
                 for player in players:
@@ -52,7 +56,7 @@ class GetAwayGame:
 
                 table_cards.pick_up_card(
                     players[(starter + i) % num_live_players].getAway_move(
-                        table_cards, garbage, players, i, starter, True, winners, num_live_players
+                        table_cards, garbage, players, i, starter, True, winners, num_of_cards, cards_picked_up_from_table, num_live_players
                     )
                 )
                 i+=1
@@ -75,9 +79,11 @@ class GetAwayGame:
                     if not isinstance(current, HumanPlayer):
                         current.show_cards()
 
-                if (j>1) and isinstance(current, QLearner):
-                    current.update_qtable()
-                table_cards.pick_up_card( current.getAway_move(table_cards, garbage, players, i, starter, False, winners, num_live_players) )
+                table_cards.pick_up_card( current.getAway_move(table_cards, garbage, players, i, starter, False, winners, num_of_cards, cards_picked_up_from_table, num_live_players) )
+
+                num_of_cards[current.name] = current.hand.get_card_count()
+                if cards_picked_up_from_table[current.name].has_specific_card(table_cards.get_top_card()):
+                    cards_picked_up_from_table[current.name].pop_card(table_cards.get_top_card())
 
                 # checking game status
                 if not (i==0):
@@ -96,10 +102,12 @@ class GetAwayGame:
             if round_end_early:
                 if show_every_round:
                     print(f"{next_starting_player.name} picks up the table cards!")
-
+                current_table_cards = table_cards.pop_all_cards()
                 next_starting_player.pick_up_cards(
-                    table_cards.pop_all_cards()
+                    current_table_cards
                 )
+                cards_picked_up_from_table[next_starting_player.name].pick_up_cards(current_table_cards)
+                num_of_cards[next_starting_player.name] = next_starting_player.hand.get_card_count()
 
             else:
                 garbage.pick_up_cards( table_cards.pop_all_cards() )
@@ -112,6 +120,7 @@ class GetAwayGame:
                           +" the garbage since they threw highest but are out!")
 
                 garbage.shuffle_cards()
+                num_of_cards[next_starting_player.name] = 1
                 next_starting_player.pick_up_card( garbage.pop_card(1) )
 
             # removing winners:
@@ -160,9 +169,7 @@ class GetAwayGame:
         else:
             print("Mumber of games must be less than " + str(self.MAX_GAMES))
 
-        for player in self.all_players:
-            if isinstance(player, QLearner):
-                player.save_qtable()
+
 
     def deal_cards(self):
         split_decks = Deck().deal(len(self.all_players))
@@ -179,10 +186,10 @@ def get_players():
     names = ["Agent1", "Agent2", "Agent3", "Agent4"]
     for i in range(4):
         selection = -1
-        while selection not in [1,2,3,4]:
+        while selection not in [1,2,3,4,5,6]:
             print("Select the type for player "+str(i+1))
-            print(" 1 - RandomAgent\n 2 - Heuristic1\n 3 - Heuristic2\n"+ 
-                  " 4 - Human\n")
+            print(" 1 - RandomAgent\n 2 - Heuristic1\n 3 - Heuristic2\n"
+                  " 4 - Heuristic3\n 5 - Rollout\n 6 - Human")
             selection = int(input())
 
         name = ""
@@ -197,9 +204,13 @@ def get_players():
         if selection==1:
             players[i] = RandomAgent(name=names[i])
         elif selection==2:
-            players[i] = BasePolicy1(name=names[i])
+            players[i] = LowCardPolicy(name=names[i])
         elif selection==3:
-            players[i] = BasePolicy2(name=names[i])
+            players[i] = MidCardPolicy(name=names[i])
+        elif selection==4:
+            players[i] = HighCardPolicy(name=names[i])
+        elif selection==5:
+            players[i] = Rollout(name=names[i])
         else:
             players[i] = HumanPlayer(name=names[i])
     return players

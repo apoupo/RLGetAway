@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
-from cards import Hand
+from cards import Hand, Deck
 from random import randint, shuffle
 from copy import copy, deepcopy
+
 
 class Player(ABC):
 
@@ -24,7 +25,7 @@ class Player(ABC):
     def pick_up_card(self, c):
         self.hand.pick_up_card(c)
 
-    def getAway_move(self, table_cards, garbage, players, i, starter, isFirstRound, winners, num_live_players = 0):
+    def getAway_move(self, table_cards, garbage, players, i, starter, isFirstRound, winners, num_of_cards, cards_picked_up_from_table, num_live_players = 0):
         ''' abstract method. table_cards is a Hand
             containing cards on the table,
 
@@ -35,7 +36,7 @@ class Player(ABC):
 
 class HumanPlayer(Player):
     ''' human player which interacts with game through command line '''
-    def getAway_move(self, table_cards, garbage, players, i, starter, isFirstRound, winners, num_live_players = 0):
+    def getAway_move(self, table_cards, garbage, players, i, starter, isFirstRound, winners, num_of_cards, cards_picked_up_from_table, num_live_players = 0):
         selection = 0
         self.hand.cards = sorted(self.hand.cards, key=lambda element: (element[0], element[2]))
         print("Would you like to see your cards? (y/n)")
@@ -70,8 +71,8 @@ class HumanPlayer(Player):
 
         return self.hand.pop_card(selection)
     
-class BasePolicy1(Player):
-    def getAway_move(self, table_cards, garbage, players, i, starter, isFirstRound, winners, num_live_players = 0):
+class LowCardPolicy(Player):
+    def getAway_move(self, table_cards, garbage, players, i, starter, isFirstRound, winners, num_of_cards, cards_picked_up_from_table, num_live_players = 0):
         selection = 0
         if table_cards.get_card_count() > 0:
             table_suit = table_cards.get_bottom_suit()
@@ -92,30 +93,24 @@ class BasePolicy1(Player):
         return self.hand.pop_card( selection )
 
 
-class BasePolicy2(Player):
-    def getAway_move(self, table_cards, garbage, players, i, starter, isFirstRound, winners, num_live_players = 0):
+class MidCardPolicy(Player):
+    def getAway_move(self, table_cards, garbage, players, i, starter, isFirstRound, winners, num_of_cards, cards_picked_up_from_table, num_live_players = 0):
         selection = 0
         if table_cards.get_card_count() > 0:
             table_suit = table_cards.get_bottom_suit()
             if self.hand.has_suit( table_suit ):
-                if len(table_cards.cards) == num_live_players-1:
-                    card_values = [ card[2] if card[0]==table_suit else -1
+                selection = 0
+                card_values = [ card[2] if card[0]==table_suit else -1
                                 for card in self.hand.cards ]
-                    selection = card_values.index(max(card_values))+1 
-                # Case 1 - player has the live suit
-                else:
-                    selection = 0
-                    card_values = [ card[2] if card[0]==table_suit else -1
-                                for card in self.hand.cards ]
-                    table_cards_val = [ card[2] if card[0]==table_suit else -1
+                table_cards_val = [ card[2] if card[0]==table_suit else -1
                                 for card in table_cards.cards ]
-                    maxCard = max(table_cards_val)
-                    while card_values[selection] == -1:
-                        selection += 1
-                    for i in range(len(card_values)):
-                        if card_values[i] > card_values[selection] and card_values[i] < maxCard:
-                            selection = i
+                maxCard = max(table_cards_val)
+                while card_values[selection] == -1:
                     selection += 1
+                for i in range(len(card_values)):
+                    if card_values[i] > card_values[selection] and card_values[i] < maxCard:
+                        selection = i
+                selection += 1
             else:
                 # Case 2 - player does not have live suit
                 card_values = [ card[2] for card in self.hand.cards ]
@@ -127,9 +122,29 @@ class BasePolicy2(Player):
 
         return self.hand.pop_card( selection )
 
+class HighCardPolicy(Player):
+    def getAway_move(self, table_cards, garbage, players, i, starter, isFirstRound, winners, num_of_cards, cards_picked_up_from_table, num_live_players = 0):
+        selection = 0
+        if table_cards.get_card_count() > 0:
+            table_suit = table_cards.get_bottom_suit()
+            if self.hand.has_suit( table_suit ):
+                card_values = [ card[2] if card[0]==table_suit else -1
+                                for card in self.hand.cards ]
+                selection = card_values.index(max(card_values))+1
+
+            else:
+                # Case 2 - player does not have live suit
+                card_values = [ card[2] for card in self.hand.cards ]
+                selection = card_values.index(max(card_values))+1
+        else:
+            # Case 3 - player is starting a round
+            card_values = [ card[2] for card in self.hand.cards ]
+            selection = card_values.index(max(card_values))+1
+
+        return self.hand.pop_card( selection )
 class RandomAgent(Player):
     ''' CPU player which selects cards at random to play '''
-    def getAway_move(self, table_cards, garbage, players, i, starter, isFirstRound, winners, num_live_players = 0):
+    def getAway_move(self, table_cards, garbage, players, i, starter, isFirstRound, winners, num_of_cards, cards_picked_up_from_table, num_live_players = 0):
         if self.hand.get_card_count() == 1:
             return self.hand.pop_card(1)
         selection = 0
@@ -180,48 +195,123 @@ class HumanLikeCPU(Player):
 
 class Rollout(Player):
 
-    def getAway_move(self, table_cards, garbage, players, i, starter, isFirstRound, winners, num_live_players = 0):
-        playersCopy = deepcopy(players)
-        table_cards_copy = deepcopy(table_cards)
-        garbage_copy = deepcopy(garbage)
-        winners_copy = deepcopy(winners)
-        basePolicy1 = BasePolicy1(self.name, deepcopy(self.hand.cards))
-        basePolicy2 = BasePolicy2(self.name, deepcopy(self.hand.cards))
-        playersCopy[(starter+i)%num_live_players] = deepcopy(basePolicy1)
-        score1 = runRoundsAndCalculatePoints(table_cards_copy, garbage_copy, playersCopy, i, starter, isFirstRound, winners_copy, num_live_players)
-        playersCopy = deepcopy(players)
-        playersCopy[(starter+i)%num_live_players] = deepcopy(basePolicy2)
-        table_cards_copy = deepcopy(table_cards)
-        garbage_copy = deepcopy(garbage)
-        winners_copy = deepcopy(winners)
-        score2 = runRoundsAndCalculatePoints(table_cards_copy, garbage_copy, playersCopy, i, starter, isFirstRound, winners_copy, num_live_players)
-        if score1 <= score2:
-            card = basePolicy1.getAway_move(table_cards, garbage, players, i, starter, isFirstRound, winners, num_live_players)
+    def getAway_move(self, table_cards, garbage, players, i, starter, isFirstRound, winners, num_of_cards, cards_picked_up_from_table, num_live_players = 0):
+        lcAverageScore = 0
+        mcAverageScore = 0
+        hcAverageScore = 0
+        remainingCards = Deck()
+        for card in table_cards.cards:
+            remainingCards.full_deck.remove(card)
+
+        for card in garbage.cards :
+            remainingCards.full_deck.remove(card)
+
+        for card in self.hand.cards:
+            remainingCards.full_deck.remove(card)
+
+        for player in players:
+            if player.name == self.name:
+                continue
+            for card in cards_picked_up_from_table[player.name].cards:
+                remainingCards.full_deck.remove(card)
+
+
+        lcPolicy = LowCardPolicy(self.name, deepcopy(self.hand.cards))
+        mcPolicy = MidCardPolicy(self.name, deepcopy(self.hand.cards))
+        hcPolicy = HighCardPolicy(self.name, deepcopy(self.hand.cards))
+        for j in range(10):
+            shuffle(remainingCards.full_deck)
+            itr = 0
+            playersCopy = deepcopy(players)
+            for k in range(len(playersCopy)):
+                if playersCopy[k].name == self.name:
+                    continue
+                playersCopy[k].hand = deepcopy(cards_picked_up_from_table[playersCopy[k].name])
+                for m in range(num_of_cards[playersCopy[k].name]-cards_picked_up_from_table[playersCopy[k].name].get_card_count()):
+                    playersCopy[k].hand.pick_up_card(remainingCards.full_deck[itr])
+                    itr += 1
+
+            for n in range(3):
+                table_cards_copy = deepcopy(table_cards)
+                garbage_copy = deepcopy(garbage)
+                winners_copy = deepcopy(winners)
+                players_copy = deepcopy(playersCopy)
+                players_copy[(starter+i)%num_live_players] = deepcopy(lcPolicy)
+                lcAverageScore += runRoundsAndCalculatePoints(table_cards_copy, garbage_copy, players_copy, i, starter, isFirstRound, winners_copy, num_live_players, n, num_of_cards, cards_picked_up_from_table)
+
+
+            for n in range(3):
+                table_cards_copy = deepcopy(table_cards)
+                garbage_copy = deepcopy(garbage)
+                winners_copy = deepcopy(winners)
+                players_copy = deepcopy(playersCopy)
+                players_copy[(starter+i)%num_live_players] = deepcopy(mcPolicy)
+                mcAverageScore += runRoundsAndCalculatePoints(table_cards_copy, garbage_copy, players_copy, i, starter, isFirstRound, winners_copy, num_live_players, n, num_of_cards, cards_picked_up_from_table)
+
+            for n in range(3):
+                table_cards_copy = deepcopy(table_cards)
+                garbage_copy = deepcopy(garbage)
+                winners_copy = deepcopy(winners)
+                players_copy = deepcopy(playersCopy)
+                players_copy[(starter+i)%num_live_players] = deepcopy(hcPolicy)
+                hcAverageScore += runRoundsAndCalculatePoints(table_cards_copy, garbage_copy, players_copy, i, starter, isFirstRound, winners_copy, num_live_players, n, num_of_cards, cards_picked_up_from_table)
+
+
+        if lcAverageScore < mcAverageScore and lcAverageScore < hcAverageScore:
+            card = lcPolicy.getAway_move(table_cards, garbage, players, i, starter, isFirstRound, winners, num_of_cards, cards_picked_up_from_table, num_live_players)
             return self.hand.pop_card(card)
-        card = basePolicy2.getAway_move(table_cards, garbage, players, i, starter, isFirstRound, winners, num_live_players)
-        return self.hand.pop_card(card)
+        elif mcAverageScore < lcAverageScore and mcAverageScore < hcAverageScore:
+            card = mcPolicy.getAway_move(table_cards, garbage, players, i, starter, isFirstRound, winners, num_of_cards, cards_picked_up_from_table, num_live_players)
+            return self.hand.pop_card(card)
+        else:
+            card = hcPolicy.getAway_move(table_cards, garbage, players, i, starter, isFirstRound, winners, num_of_cards, cards_picked_up_from_table, num_live_players)
+            return self.hand.pop_card(card)
 
 
 
-def runRoundsAndCalculatePoints(table_cards, garbage, players, i, starter, isFirstRound, winners, num_live_players):
+def runRoundsAndCalculatePoints(table_cards, garbage, players, i, starter, isFirstRound, winners, num_live_players, changeToWhat, num_of_cards, cards_picked_up_from_table):
     playerName = players[(starter + i) % num_live_players].name
     if isFirstRound:
         while i<num_live_players:
             # next player in rotation plays
             table_cards.pick_up_card(
                 players[(starter + i) % num_live_players].getAway_move(
-                    table_cards, garbage, players, i, starter, isFirstRound, winners, num_live_players
+                    table_cards, garbage, players, i, starter, isFirstRound, winners, num_of_cards, cards_picked_up_from_table, num_live_players
                 )
             )
             i+=1
-        
+        if changeToWhat == 0:
+            for m in range(len(players)):
+                if players[m].name == playerName:
+                    players[m] = LowCardPolicy(players[m].name, deepcopy(players[m].hand.cards))
+        elif changeToWhat == 1:
+            for m in range(len(players)):
+                if players[m].name == playerName:
+                    players[m] = MidCardPolicy(players[m].name, deepcopy(players[m].hand.cards))
+        else:
+            for m in range(len(players)):
+                if players[m].name == playerName:
+                    players[m] = HighCardPolicy(players[m].name, deepcopy(players[m].hand.cards))
         round = 2
         # dump all cards after first round
         garbage.pick_up_cards( table_cards.pop_all_cards() )
 
         # central loop for game
         j=1
-        while num_live_players>1 and round < 4:
+        while num_live_players>1 and round < 5:
+            if round == 2:
+                if changeToWhat == 0:
+                    for m in range(len(players)):
+                        if players[m].name == playerName:
+                            players[m] = LowCardPolicy(players[m].name, deepcopy(players[m].hand.cards))
+            elif changeToWhat == 1:
+                for m in range(len(players)):
+                    if players[m].name == playerName:
+                        players[m] = MidCardPolicy(players[m].name, deepcopy(players[m].hand.cards))
+            else:
+                for m in range(len(players)):
+                    if players[m].name == playerName:
+                        players[m] = HighCardPolicy(players[m].name, deepcopy(players[m].hand.cards))
             # begin a single round
             round_end_early = False
             i=0
@@ -231,7 +321,7 @@ def runRoundsAndCalculatePoints(table_cards, garbage, players, i, starter, isFir
                 # player takes turn
                 current = players[(starter + i) % num_live_players]
 
-                table_cards.pick_up_card( current.getAway_move(table_cards, garbage, players, i, starter, isFirstRound, winners, num_live_players) )
+                table_cards.pick_up_card( current.getAway_move(table_cards, garbage, players, i, starter, isFirstRound, winners, num_of_cards, cards_picked_up_from_table, num_live_players) )
 
                 # checking game status
                 if not (i==0):
@@ -290,7 +380,7 @@ def runRoundsAndCalculatePoints(table_cards, garbage, players, i, starter, isFir
 
         # central loop for game
         j=1
-        while num_live_players>1 and round < 4:
+        while num_live_players>1 and round < 5:
             # begin a single round
             round_end_early = False
             next_starting_player = players[starter]
@@ -299,7 +389,7 @@ def runRoundsAndCalculatePoints(table_cards, garbage, players, i, starter, isFir
                 # player takes turn
                 current = players[(starter + i) % num_live_players]
 
-                table_cards.pick_up_card( current.getAway_move(table_cards, garbage, players, i, starter, isFirstRound, winners, num_live_players) )
+                table_cards.pick_up_card( current.getAway_move(table_cards, garbage, players, i, starter, isFirstRound, winners, num_of_cards, cards_picked_up_from_table, num_live_players) )
 
                 # checking game status
                 if not (i==0):

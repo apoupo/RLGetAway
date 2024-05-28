@@ -139,6 +139,9 @@ class Hand:
     def top_card_is_diffsuit(self):
         return (not (self.get_bottom_suit() == self.cards[-1][0]))
 
+    def get_top_card(self):
+        return self.cards[-1]
+
 
 class GUIDeck:
     ''' same as Deck, with images on each card tuple for GUI '''

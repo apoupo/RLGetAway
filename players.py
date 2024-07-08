@@ -237,7 +237,7 @@ class Rollout(Player):
             winners_copy = deepcopy(winners)
             players_copy = deepcopy(playersCopy)
             players_copy[(starter+i)%num_live_players] = deepcopy(lcPolicy)
-            lcAverageScore += runRoundsAndCalculatePoints(table_cards_copy, garbage_copy, players_copy, i, starter, isFirstRound, winners_copy, num_live_players, 0, num_of_cards, cards_picked_up_from_table)
+            lcAverageScore += runRoundsAndCalculatePoints(table_cards_copy, garbage_copy, players_copy, i, starter, isFirstRound, winners_copy, num_live_players, 1, num_of_cards, cards_picked_up_from_table)
 
 
 
@@ -246,7 +246,7 @@ class Rollout(Player):
             winners_copy = deepcopy(winners)
             players_copy = deepcopy(playersCopy)
             players_copy[(starter+i)%num_live_players] = deepcopy(mcPolicy)
-            mcAverageScore += runRoundsAndCalculatePoints(table_cards_copy, garbage_copy, players_copy, i, starter, isFirstRound, winners_copy, num_live_players, 0, num_of_cards, cards_picked_up_from_table)
+            mcAverageScore += runRoundsAndCalculatePoints(table_cards_copy, garbage_copy, players_copy, i, starter, isFirstRound, winners_copy, num_live_players, 1, num_of_cards, cards_picked_up_from_table)
 
 
             table_cards_copy = deepcopy(table_cards)
@@ -254,7 +254,7 @@ class Rollout(Player):
             winners_copy = deepcopy(winners)
             players_copy = deepcopy(playersCopy)
             players_copy[(starter+i)%num_live_players] = deepcopy(hcPolicy)
-            hcAverageScore += runRoundsAndCalculatePoints(table_cards_copy, garbage_copy, players_copy, i, starter, isFirstRound, winners_copy, num_live_players, 0, num_of_cards, cards_picked_up_from_table)
+            hcAverageScore += runRoundsAndCalculatePoints(table_cards_copy, garbage_copy, players_copy, i, starter, isFirstRound, winners_copy, num_live_players, 1, num_of_cards, cards_picked_up_from_table)
 
 
         if lcAverageScore < mcAverageScore and lcAverageScore < hcAverageScore:
@@ -280,18 +280,7 @@ def runRoundsAndCalculatePoints(table_cards, garbage, players, i, starter, isFir
                 )
             )
             i+=1
-        if changeToWhat == 0:
-            for m in range(len(players)):
-                if players[m].name == playerName:
-                    players[m] = LowCardPolicy(players[m].name, deepcopy(players[m].hand.cards))
-        elif changeToWhat == 1:
-            for m in range(len(players)):
-                if players[m].name == playerName:
-                    players[m] = MidCardPolicy(players[m].name, deepcopy(players[m].hand.cards))
-        else:
-            for m in range(len(players)):
-                if players[m].name == playerName:
-                    players[m] = HighCardPolicy(players[m].name, deepcopy(players[m].hand.cards))
+        
         round = 2
         # dump all cards after first round
         garbage.pick_up_cards( table_cards.pop_all_cards() )
@@ -304,14 +293,14 @@ def runRoundsAndCalculatePoints(table_cards, garbage, players, i, starter, isFir
                     for m in range(len(players)):
                         if players[m].name == playerName:
                             players[m] = LowCardPolicy(players[m].name, deepcopy(players[m].hand.cards))
-            elif changeToWhat == 1:
-                for m in range(len(players)):
-                    if players[m].name == playerName:
-                        players[m] = MidCardPolicy(players[m].name, deepcopy(players[m].hand.cards))
-            else:
-                for m in range(len(players)):
-                    if players[m].name == playerName:
-                        players[m] = HighCardPolicy(players[m].name, deepcopy(players[m].hand.cards))
+                elif changeToWhat == 1:
+                    for m in range(len(players)):
+                        if players[m].name == playerName:
+                            players[m] = MidCardPolicy(players[m].name, deepcopy(players[m].hand.cards))
+                else:
+                    for m in range(len(players)):
+                        if players[m].name == playerName:
+                            players[m] = HighCardPolicy(players[m].name, deepcopy(players[m].hand.cards))
             # begin a single round
             round_end_early = False
             i=0
@@ -381,6 +370,19 @@ def runRoundsAndCalculatePoints(table_cards, garbage, players, i, starter, isFir
         # central loop for game
         j=1
         while num_live_players>1 and round < 5:
+            if round == 2:
+                if changeToWhat == 0:
+                    for m in range(len(players)):
+                        if players[m].name == playerName:
+                            players[m] = LowCardPolicy(players[m].name, deepcopy(players[m].hand.cards))
+                elif changeToWhat == 1:
+                    for m in range(len(players)):
+                        if players[m].name == playerName:
+                            players[m] = MidCardPolicy(players[m].name, deepcopy(players[m].hand.cards))
+                else:
+                    for m in range(len(players)):
+                        if players[m].name == playerName:
+                            players[m] = HighCardPolicy(players[m].name, deepcopy(players[m].hand.cards))
             # begin a single round
             round_end_early = False
             next_starting_player = players[starter]
